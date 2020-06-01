@@ -1,0 +1,393 @@
+---
+title: "assignment_4"
+author: "Tao Long"
+date: "4/22/2020"
+output:
+  md_document:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Assignment 4: Data exploration
+<hr>
+
+<h3>Instructions: Please read through this before you begin</h3>
+---
+
+<ul>
+<li>This assignment is due by 10pm on Wednesday 04/22/20.
+
+<li><b>Reproduce this markdown template.</b> Pay attention to all the formating in this file, including bullet points, bolded characters, inserted code chunks, headings, text colors, blank lines, and etc.
+
+<li>For the first exercise in this assignment, you will explore a dataset with details about passengers on the Titanic. First, <b>answer the questions below and use figures or tables to support your answer.</b> Then, <b>explore the dataset on your own</b> using the data transformation and visualization skills that you have learned in this class so far.
+
+<ul>
+<li>For this exercise, please make sure to put some thought into <b>editing the aesthetics of your figures and tables</b> to make them easier to understand and nicer to look at (e.g. choose the most appropriate geometric object, aesthetic mapping, facetting, position adjustment; add meaningful axis labels, figure titles, legend titles; change the background; be creative; and etc.).
+
+<li>When a verbal response is needed, answer by replacing the part in the R markdown template where it says "Write your response here" .
+</ul>
+
+<li>For the second exercise in this assignment, you will use the data wrangling and visualization skills that you have learned in this class to reproduce a figure exactly as it is shown.
+
+<li>Have all your code embedded within the R markdown file, and show both of your <b>code</b> and <b>plots</b> in the knitted markdown file.
+
+<li>Use R Markdown functionalities to <b>hide messages and warnings when needed.</b> (Suggestion: messages and warnings can often be informative and important, so please examine them carefully and only turn them off when you finish the exercise).
+</ul>
+
+<li>Please name your R markdown file `assignment_4.Rmd` and the knitted markdown file `assignment_4.md`. Please upload both files using your personal GitHub repository for this class.
+
+<li>First, load all the required packages with the following code. Install them if they are not installed yet.
+
+</ul>
+
+```{r message=F, warning=F}
+library(tidyverse)
+library(knitr)
+library(gapminder)
+```
+
+
+
+<br>
+<h3>Exercise 1: Titanic passengers</h3>
+<hr>
+
+This dataset contains information about a subset of the passengers who were aboard the Titanic when it sank in 1912.
+
+```{r message=F, warning=F}
+titanic<-read_csv("https://raw.githubusercontent.com/nt246/NTRES6940-data-science/master/datasets/Titanic.csv")
+kable(head(titanic))
+```
+
+And here are descriptions of the variables in the dataset
+
+```{r message=F, warning=F}
+notes<-read_csv("https://raw.githubusercontent.com/nt246/NTRES6940-data-science/master/datasets/Notes.csv")
+kable(notes)
+```
+
+Note: Age is fractional if less than 1. If the age is estimated, it is in the form of xx.5
+
+<h4>Part 1.</h4>
+
+<b>Answer the questions below</b> and <b>use figures or tables</b> to support your answer. Choose the most appropriate type of figure or table for each question.
+
+
+**1.1 According to Wikipedia, there was an estimated 2,224 passengers and crew onboard the Titanic when it sank. How many of them do we have information on in this dataset? How many of them survived and how many did not? What is the overall survival rate?**
+```{r message=F, warning=F}
+count(titanic, Survived) %>%
+  ggplot(aes(x=Survived, y=n, label=n)) +
+  geom_col(aes(fill=n)) +
+  geom_label(aes(y=n+1))
+```
+Answer: 549 + 342 = 891 passengers on record, so other 2224 - 891 = 1333 people were not on record. 549 passengers were not survived while 342 passengers out of 891 were survived. Then for the rate, we could use a pie chart to find the survival rate:
+```{r message=F, warning=F}
+library(dplyr)
+library(ggplot2)
+library(ggmap)
+df <- data.frame(value = c(891, 342, 1333),
+  Group = c("Survived", "Not Survived", "No Record"))%>%
+mutate(Group = factor(Group, levels = c("No Record", "Not Survived", "Survived")),
+          cumulative = cumsum(value),
+          midpoint = cumulative - value / 2,
+          label = paste0(Group, " ", round(value / sum(value) * 100, 1), "%"))
+
+ggplot(df, aes(x = 1, weight = value, fill = Group)) +
+   geom_bar(width = 1, position = "stack") +
+   coord_polar(theta = "y") +
+   geom_text(aes(x = 1.3, y = midpoint, label = label)) +
+   theme_nothing()      
+```
+Thus, we could see that 34.7% percent of the passengers are survived and on record, 13.3% of passengers are not survived and on record, and 51.9% percent of the 2224 passengers are not on the records.
+<br>
+<br>
+
+
+**1.2 How many passengers on the Titanic were males and how many were females? What do you find when you break it down by ticket class?**
+```{r message=F, warning=F}
+library(tidyverse)
+library(cowplot)
+library(knitr)
+library(googlesheets4)
+library(ggwordcloud)
+library(viridis)
+
+count(titanic, Sex) %>%
+  ggplot(aes(x=Sex, y=n, label=n)) +
+  geom_col(aes(fill=n)) +
+  geom_label(aes(y=n+1))
+
+count(titanic, Sex, Pclass) %>%
+  ggplot(aes(x=Sex, y=n, label=n)) +
+  geom_col(aes(fill=Sex)) +
+  geom_text(aes(y=n+1)) +
+  facet_wrap(~Pclass, nrow = 1) +
+  scale_fill_viridis_d() +
+  theme_cowplot()
+```
+Answer: 577 passengers on the Titanic were males and 314 passengers were females. From the second graph, we can find that in different classes, the composition of males and females are different. From the first class, there are 94 females and 122 males. From the second class, there are 76 females and 108 males. Finally, from the third class, 347 males and 144 females.
+<br>
+<br>
+
+
+**1.3 How many passengers of each sex survived and how many of them did not? What is the survival rate for passengers of each sex?**
+
+Answer: In men, 468 men on record are not survived and 109 men on records are survived. The rate of men to survive is 18.9%.
+<b>Male:</b>
+```{r message=F, warning=F}
+
+count(filter(titanic, Sex == "male"), Survived) %>%
+  ggplot(aes(x=Survived, y=n, label=n)) +
+  geom_col(aes(fill=n)) +
+  geom_label(aes(y=n+1))
+
+df <- data.frame(value = c(109, 468),
+  Group = c("Survived", "Not Survived"))%>%
+mutate(Group = factor(Group, levels = c("Not Survived", "Survived")),
+          cumulative = cumsum(value),
+          midpoint = cumulative - value / 2,
+          label = paste0(Group, " ", round(value / sum(value) * 100, 1), "%"))
+
+ggplot(df, aes(x = 1, weight = value, fill = Group)) +
+   geom_bar(width = 1, position = "stack") +
+   coord_polar(theta = "y") +
+   geom_text(aes(x = 1.3, y = midpoint, label = label)) +
+   theme_nothing()
+```
+
+<br>
+Answer: In femele, 81 women on record are not survived and 223 men on records are survived. The rate of men to survive is 72.4%.
+<b>Female:</b>
+```{r message=F, warning=F}
+count(filter(titanic, Sex == "female"), Survived) %>%
+  ggplot(aes(x=Survived, y=n, label=n)) +
+  geom_col(aes(fill=n)) +
+  geom_label(aes(y=n+1))
+
+df <- data.frame(value = c(233, 89),
+  Group = c("Survived", "Not Survived"))%>%
+mutate(Group = factor(Group, levels = c("Not Survived", "Survived")),
+          cumulative = cumsum(value),
+          midpoint = cumulative - value / 2,
+          label = paste0(Group, " ", round(value / sum(value) * 100, 1), "%"))
+
+ggplot(df, aes(x = 1, weight = value, fill = Group)) +
+   geom_bar(width = 1, position = "stack") +
+   coord_polar(theta = "y") +
+   geom_text(aes(x = 1.3, y = midpoint, label = label)) +
+   theme_nothing()
+```
+<br>
+<br>
+
+
+**1.4 How many passengers do we have age information for (including estimated age)? For how many is the age information missing? What is the age distribution for passengers whose age information is available?**
+```{r message=F, warning=F}
+sum(is.na(titanic$Age))
+```
+Answer: Thus, there are 177 entries about the passengers who we dont have age information for (including estimated age). Thus, we could get total entries 891 - 177 = 714. Thus, we have 714 passengers with age info. And here is the age distribution:
+```{r message=F, warning=F}
+library(ggpubr)
+theme_set(theme_pubr())
+
+ggplot(titanic, aes(Age)) +
+  geom_bar(fill = "#0073C2FF") +
+  theme_pubclean()
+```
+<br>
+<br>
+
+
+**1.5 Show the age distribution per ticket class, per sex. What do you find?**
+```{r message=F, warning=F}
+ggplot(titanic, aes(Age)) +
+  geom_bar(fill = "#0073C2FF") +
+  theme_pubclean()+
+  facet_wrap(~Sex, nrow = 1)
+
+ggplot(titanic, aes(Age)) +
+  geom_bar(fill = "#0073C2FF") +
+  theme_pubclean()+
+  facet_wrap(~Pclass, nrow = 1)
+```
+Answer: From the top two graphs, we could see that the age distribution in different genders are similar, which are both having the mean/center around 20-35 and having a good concentration on that. Then, similar to a normal distribution, the two ends have fewer data points. Since the number of males are more than the female's, thus, the peak of male's age distribution is higher. Then, from the age distribution according to different class, we could see that the for the first class, the mean is around 40 years old and older. For the second class, the mean left shift a little to around 30 yr, while for the third class, the mean is shifter to around 20-25yr.
+<br>
+<br>
+
+
+**1.6 What is the age distribution of passengers who survived vs. those who did not? What hypothesis can you come up with when comparing these two distributions?**
+```{r message=F, warning=F}
+ggplot(titanic, aes(Age)) +
+  geom_bar(fill = "#0073C2FF") +
+  theme_pubclean()+
+  facet_wrap(~Survived, nrow = 1)
+```
+Answer: We could see that for the people who are not survived, we see a greta population around 20 years old. However, for the survived passengers, we could see that there is comparatively less obvious distribution trend. Thus, I assume that during that night, the officers asked the young and the elders to come to the small boat first and then fill with 20-40 yr adults.
+
+<br>
+<br>
+
+
+
+**1.7 In this dataset, the Fare variable does not represent the fare per person. Instead, each ticket number has a corresponding fare, and some passengers share one single ticket number. Therefore, the Fare variable is the total fare for a group of passengers sharing the same ticket number. Knowing this, calculate the average fare per person. (You don't need to show a table or a figure for this question, just show the code for the calculation)**
+```{r message=F, warning=F}
+ggplot(titanic, aes(Age)) +
+  geom_bar(fill = "#0073C2FF") +
+  theme_pubclean()+
+  facet_wrap(~Survived, nrow = 1)
+```
+Answer: We could see that for the people who are not survived, we see a greta population around 20 years old. However, for the survived passengers, we could see that there is comparatively less obvious distribution trend. Thus, I assume that during that night, the officers asked the young and the elders to come to the small boat first and then fill with 20-40 yr adults.
+
+<br>
+<br>
+
+
+
+**1.8 Show the distribution of the number of family members (including siblings, spouses, parents, and children) that each passenger was accompanied by. Were most passengers travelling solo or with family?**
+```{r message=F, warning=F}
+#mutate(titanic$Sibsp = titanic$Sibsp + titanic$Parch);
+ggplot(titanic %>% mutate(SibSp = SibSp + Parch) , aes(titanic$SibSp)) +
+  geom_bar(fill = "#0073C2FF") +
+  theme_pubclean()
+```
+Answer: We could see from the distribution, most of the passengers are travelling solo.
+
+<br>
+<br>
+
+
+**1.9 Which ticket class did most of the largest families get? And which ticket class has the lowest proportion of female passengers who travelled solo out of all the female passengers in that class?**
+```{r message=F, warning=F}
+ggplot(titanic , aes(Pclass)) +
+  geom_bar(fill = "#0073C2FF") +
+  theme_pubclean()+
+  facet_wrap(~SibSp, nrow = 1)
+```
+```{r message=F, warning=F}
+ggplot(filter(filter(filter(titanic,  Sex == "female"), SibSp == 0), Parch == 0), aes(Pclass)) +
+  geom_bar(fill = "#0073C2FF") +
+  theme_pubclean()+
+  facet_wrap(~Pclass, nrow = 1)
+```
+Answer: From the graph, we could see that the largest families were likely to get the third class tickets. Then, from the second graph, we could see that the second class has lowest proportion of female passengers who travelled solo out of all the female passengers in that class.
+<br>
+<br>
+
+
+**1.10 Do the port of embarkation matter for the survival rates of passengers? Why might this be the case?**
+```{r message=F, warning=F}
+p<- ggplot(data = titanic, aes(x=Embarked, y=Survived, color=Embarked))
+p + geom_jitter(alpha=0.3) 
+```
+Answer: Thus, from the six different setts, we could see that there is not a strong relationship between the survival rate and the embarkation matter according to the arrangements of data points. Most of the cases roughly have a half-and-half survival rate. I think the embarkation port has nothing affecting to the survival rate since the titanic was down during its trip in the Atlantic ocean.
+
+<br>
+<br>
+
+<h4>Part 2.</h4>
+Explore other aspects of this dataset on your own using <b>a variety of the skills</b> that you have learned in this class so far (i.e. data visualization, transformation, and exploration). Come up with <b>at least 3 interesting findings or potential hypotheses.</b>
+
+
+
+**1.11 Do all the first class tickets have the same price? Do all the second class tickets have the same price? Do all the third class tickets have the same price?**
+```{r message=F, warning=F}
+ggplot(data = titanic) + geom_point(mapping = aes(x=Pclass, y=Fare, color = Pclass))
+```
+Answer: We could see the answer is no. The variance is pretty big.
+
+<br>
+<br>
+
+**1.12 Do the ticket price matter for the survival rates of passengers? Use statistical analysis to exaplain why might this be the case?**
+```{r message=F, warning=F}
+ggplot(data = titanic) + 
+geom_point(mapping = aes(x=Survived, y=Fare, color = Pclass))
+
+project = lm(data = titanic, Survived ~ Fare)
+summary(project)
+```
+Answer: We could see that there is not a strong relationship between the ticket price and the survival rate. The multiple R-squared is 0.066 which is pretty small, thus there is not a good reasoning for the relationship. But we could see that the one who bought the most expensive ticket got survived.
+
+<br>
+<br>
+
+**1.13 What percentage of passengers without any sibling spouses, parents, and children get survived?**
+```{r message=F, warning=F}
+count(filter(titanic, SibSp == 0), Survived) %>%
+  ggplot(aes(x=Survived, y=n, label=n)) +
+  geom_col(aes(fill=n)) +
+  geom_label(aes(y=n+1))
+
+df <- data.frame(value = c(210, 398),
+  Group = c("Survived", "Not Survived"))%>%
+mutate(Group = factor(Group, levels = c("Not Survived", "Survived")),
+          cumulative = cumsum(value),
+          midpoint = cumulative - value / 2,
+          label = paste0(Group, " ", round(value / sum(value) * 100, 1), "%"))
+
+ggplot(df, aes(x = 1, weight = value, fill = Group)) +
+   geom_bar(width = 1, position = "stack") +
+   coord_polar(theta = "y") +
+   geom_text(aes(x = 1.3, y = midpoint, label = label)) +
+   theme_nothing()   
+
+```
+Answer: From this, we could see that there are 210 solo passengers who get survived and 398 solo passengers not getting survived. The rate of the survival for the solo passengers is around 34.5%.
+
+<br>
+<br>
+
+
+<b>Don't hesitate to continue writing if you have more than 3 interesting findings.</b>
+
+
+
+<h3>Exercise 2. Fuel Efficiency of Car Models</h3>
+<hr>
+This exercise uses the mtcars dataset. It was extracted from the 1974 Motor Trend US magazine, and comprises fuel consumption and 10 aspects of automobile design and performance for 32 automobiles (1973–74 models).
+```{r message=F, warning=F}
+kable(head(mtcars)) 
+```
+
+**2.1 Reproduce the following plot, which shows the miles per gallon (mpg) of car models on the x axis (see hints below). Different models are ordered on the y axis according to their mpg and their names are shown next to the data points. Also, the size of each data point maps to its horse power (hp), and the color maps to number of cylinders (cyl).**
+```{r message=F, warning=F}
+df <- as.data.frame(mtcars)
+df$ID <- rownames(mtcars)
+#new_mtcars <- rownames_to_column(mtcars, var = "models")
+#new_mtcars <- select(mtcars, models)
+#rename(mtcars,"rowname" = )
+ggplot(data = df) + geom_point(mapping = aes(x=mpg, y=ID, color=cyl, size=hp)) 
+```
+Answer:
+
+<br>
+<br>
+
+
+<b>Hint 1: Start by transforming the data frame into the following format.</b>
+<ul>
+<li>Convert rownames to a column. (rownames_to_column() might be helpful)
+<li>Create a new variable which shows the order of car models based on their mpg. (row_number() might be helpful)
+</ul>
+The first few rows of this new data frame might look like the following.
+
+rowname	mpg	mpg_order	cyl	hp
+Mazda RX4	21.0	19	6	110
+Mazda RX4 Wag	21.0	20	6	110
+Datsun 710	22.8	24	4	93
+Hornet 4 Drive	21.4	21	6	110
+Hornet Sportabout	18.7	15	8	175
+Valiant	18.1	14	6	105
+
+
+<b>Hint 2: When making the plot, please pay attention to the following elements of the plot that need to be specified.
+<ul>
+<li>Horizontal adjustment of the text labels ("hjust" option in geom_text())</b>
+<li>The range of the x-axis (xlim())
+<li>x-axis label and legend titles (labs())
+<li>Background
+<li>The removal of the y-axis (theme())
